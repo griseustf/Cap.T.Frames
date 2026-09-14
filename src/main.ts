@@ -1,7 +1,7 @@
 import { Adb, AdbDaemonTransport } from "@yume-chan/adb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
-import { AdbScrcpyClient, AdbScrcpyOptions2_1 } from "@yume-chan/adb-scrcpy";
+import { AdbScrcpyClient, AdbScrcpyOptionsLatest } from "@yume-chan/adb-scrcpy";
 import { DefaultServerPath } from "@yume-chan/scrcpy";
 import {
   BitmapVideoFrameRenderer,
@@ -27,9 +27,22 @@ const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const connectBtn = document.getElementById("connect-btn") as HTMLButtonElement;
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 
+let currentStep = "";
+
 function setStatus(message: string, isError = false) {
+  if (!isError) currentStep = message;
   statusEl.textContent = message;
   statusEl.classList.toggle("error", isError);
+}
+
+function describeError(error: unknown): string {
+  const name = error instanceof Error ? error.name : "Erro";
+  const message = error instanceof Error ? error.message : String(error);
+  const stack =
+    error instanceof Error && error.stack
+      ? error.stack.split("\n").slice(0, 4).join(" | ")
+      : "";
+  return `Travou em: "${currentStep}"\n${name}: ${message}${stack ? `\n${stack}` : ""}`;
 }
 
 function hideOverlaySoon() {
@@ -71,10 +84,7 @@ async function main() {
       await connectAndStream(Manager);
     } catch (error) {
       console.error(error);
-      setStatus(
-        error instanceof Error ? error.message : "Falha ao conectar.",
-        true,
-      );
+      setStatus(describeError(error), true);
       connectBtn.disabled = false;
     }
   });
@@ -116,7 +126,7 @@ async function connectAndStream(Manager: AdbDaemonWebUsbDeviceManager) {
   );
 
   setStatus("Iniciando a captura de tela no Tab...");
-  const options = new AdbScrcpyOptions2_1({
+  const options = new AdbScrcpyOptionsLatest({
     video: true,
     audio: false,
     control: false,

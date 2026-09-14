@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "postinstall": "fetch-scrcpy-server 2.1"
+    "postinstall": "fetch-scrcpy-server 3.3.3"
   },
   "dependencies": {
     "@yume-chan/adb": "^2.1.0",

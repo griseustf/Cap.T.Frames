@@ -81,8 +81,14 @@ body {
   line-height: 1.5;
   color: #a9a9a3;
   margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 #status.error {
   color: var(--danger);
+  max-width: 90vw;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  text-align: left;
 }

@@ -1,7 +1,11 @@
 import { Adb, AdbDaemonTransport } from "@yume-chan/adb";
 import AdbWebCredentialStore from "@yume-chan/adb-credential-web";
 import { AdbDaemonWebUsbDeviceManager } from "@yume-chan/adb-daemon-webusb";
-import { AdbScrcpyClient, AdbScrcpyOptionsLatest } from "@yume-chan/adb-scrcpy";
+import {
+  AdbScrcpyClient,
+  AdbScrcpyExitedError,
+  AdbScrcpyOptionsLatest,
+} from "@yume-chan/adb-scrcpy";
 import { DefaultServerPath } from "@yume-chan/scrcpy";
 import {
   BitmapVideoFrameRenderer,
@@ -42,7 +46,11 @@ function describeError(error: unknown): string {
     error instanceof Error && error.stack
       ? error.stack.split("\n").slice(0, 4).join(" | ")
       : "";
-  return `Travou em: "${currentStep}"\n${name}: ${message}${stack ? `\n${stack}` : ""}`;
+  const serverOutput =
+    error instanceof AdbScrcpyExitedError && error.output.length > 0
+      ? `\nSaída do servidor no Tab:\n${error.output.join("\n")}`
+      : "";
+  return `Travou em: "${currentStep}"\n${name}: ${message}${stack ? `\n${stack}` : ""}${serverOutput}`;
 }
 
 function hideOverlaySoon() {

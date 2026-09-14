@@ -75,6 +75,39 @@ body {
   cursor: default;
 }
 
+#fullscreen-btn {
+  appearance: none;
+  border: 1px solid #444;
+  background: transparent;
+  color: #ccc;
+  padding: 10px 22px;
+  font-size: 14px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#reopen-overlay-btn {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  z-index: 10;
+  appearance: none;
+  border: none;
+  background: rgba(20, 20, 20, 0.55);
+  color: var(--signal);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+}
+
+#reopen-overlay-btn.visible {
+  display: block;
+}
+
 #status {
   max-width: 320px;
   font-size: 13px;

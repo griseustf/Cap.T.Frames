@@ -29,6 +29,12 @@ const VIDEO_MAX_FPS = 24;
 const overlay = document.getElementById("overlay") as HTMLDivElement;
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
 const connectBtn = document.getElementById("connect-btn") as HTMLButtonElement;
+const fullscreenBtn = document.getElementById(
+  "fullscreen-btn",
+) as HTMLButtonElement;
+const reopenBtn = document.getElementById(
+  "reopen-overlay-btn",
+) as HTMLButtonElement;
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 
 let currentStep = "";
@@ -53,18 +59,64 @@ function describeError(error: unknown): string {
   return `Travou em: "${currentStep}"\n${name}: ${message}${stack ? `\n${stack}` : ""}${serverOutput}`;
 }
 
-function hideOverlaySoon() {
-  // Depois de conectar, esconde o texto/botão pra não sujar a gravação da
-  // live. Um toque na tela traz a barra de volta (por ex. pra desconectar).
-  window.setTimeout(() => overlay.classList.add("hidden"), 1500);
+let hideTimer = 0;
+
+function hideOverlay() {
+  overlay.classList.add("hidden");
+  reopenBtn.classList.add("visible");
 }
 
-document.body.addEventListener("click", () => {
-  if (overlay.classList.contains("hidden")) {
-    overlay.classList.remove("hidden");
-    window.setTimeout(() => overlay.classList.add("hidden"), 4000);
+function showOverlayTemporarily() {
+  overlay.classList.remove("hidden");
+  reopenBtn.classList.remove("visible");
+  window.clearTimeout(hideTimer);
+  hideTimer = window.setTimeout(hideOverlay, 4000);
+}
+
+function hideOverlaySoon() {
+  // Depois de conectar, esconde o texto/botão pra não sujar a gravação da
+  // live. O botão discreto no canto (ou um toque na tela) traz de volta.
+  window.setTimeout(hideOverlay, 1500);
+}
+
+document.body.addEventListener("click", (event) => {
+  if (event.target === reopenBtn) return; // já tem o próprio handler
+  if (overlay.classList.contains("hidden")) showOverlayTemporarily();
+});
+
+reopenBtn.addEventListener("click", showOverlayTemporarily);
+
+function isFullscreen() {
+  return document.fullscreenElement !== null;
+}
+
+function updateFullscreenLabel() {
+  fullscreenBtn.textContent = isFullscreen()
+    ? "Sair da tela cheia"
+    : "Tela cheia";
+}
+
+fullscreenBtn.addEventListener("click", async () => {
+  try {
+    if (isFullscreen()) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch (error) {
+    console.error("Não consegui alternar tela cheia:", error);
   }
 });
+
+document.addEventListener("fullscreenchange", updateFullscreenLabel);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch((error) => console.error("Falha ao registrar service worker:", error));
+  });
+}
 
 async function main() {
   if (!("VideoDecoder" in globalThis)) {
@@ -185,6 +237,11 @@ async function connectAndStream(Manager: AdbDaemonWebUsbDeviceManager) {
   });
 
   setStatus("Conectado. Transmitindo a tela do Tab.");
+  try {
+    await document.documentElement.requestFullscreen();
+  } catch (error) {
+    console.error("Tela cheia automática não permitida:", error);
+  }
   hideOverlaySoon();
 }
 

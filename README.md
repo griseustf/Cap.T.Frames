@@ -26,6 +26,14 @@ a cada push na branch `main`.
 4. Toque em "Conectar no Tab" e escolha o aparelho na lista.
 5. Na primeira vez, autorize a depuração USB no próprio Tab.
 
+## Funciona offline
+
+Depois da primeira visita (com internet), um service worker guarda em cache
+tudo que a página precisa — incluindo o servidor do scrcpy. Daí em diante,
+abrir a página não depende de internet nenhuma: só do cabo USB-C conectado
+no Tab. Toda vez que uma nova versão é publicada, o cache se atualiza
+sozinho na próxima vez que a página carregar com internet disponível.
+
 ## Ajustar qualidade do vídeo
 
 As constantes `VIDEO_MAX_SIZE`, `VIDEO_BIT_RATE` e `VIDEO_MAX_FPS` estão no

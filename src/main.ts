@@ -18,6 +18,41 @@ import { BIN as SERVER_BIN } from "@yume-chan/fetch-scrcpy-server";
 import "./style.css";
 
 // ---------------------------------------------------------------------------
+// Trava de tela ligada: como o Note só fica exibindo a imagem (sem nenhum
+// toque), o Android apaga a tela sozinho por inatividade. Isso mantém a
+// tela acesa enquanto a transmissão estiver ativa.
+// ---------------------------------------------------------------------------
+let wakeLock: WakeLockSentinel | null = null;
+let isConnected = false;
+
+async function requestWakeLock() {
+  if (!("wakeLock" in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => {
+      wakeLock = null;
+    });
+  } catch (error) {
+    console.error("Não consegui travar a tela ligada:", error);
+  }
+}
+
+async function releaseWakeLock() {
+  try {
+    await wakeLock?.release();
+  } catch {
+    /* já liberado */
+  }
+  wakeLock = null;
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && isConnected && !wakeLock) {
+    requestWakeLock();
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Ajustes de vídeo. 1080p/24fps (atualizado a pedido do Érick, era 720p
 // antes). "maxSize" limita o maior lado da imagem (largura, já que o Tab
 // fica deitado). Reajuste esses três valores conforme os testes reais.
@@ -109,14 +144,6 @@ fullscreenBtn.addEventListener("click", async () => {
 });
 
 document.addEventListener("fullscreenchange", updateFullscreenLabel);
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register(`${import.meta.env.BASE_URL}sw.js`)
-      .catch((error) => console.error("Falha ao registrar service worker:", error));
-  });
-}
 
 async function main() {
   if (!("VideoDecoder" in globalThis)) {
@@ -232,11 +259,15 @@ async function connectAndStream(Manager: AdbDaemonWebUsbDeviceManager) {
 
   void videoPacketStream.pipeTo(decoder.writable).catch((error) => {
     console.error("Stream de vídeo encerrado:", error);
+    isConnected = false;
+    void releaseWakeLock();
     setStatus("A conexão caiu. Recarregue a página e conecte de novo.", true);
     overlay.classList.remove("hidden");
   });
 
   setStatus("Conectado. Transmitindo a tela do Tab.");
+  isConnected = true;
+  await requestWakeLock();
   try {
     await document.documentElement.requestFullscreen();
   } catch (error) {

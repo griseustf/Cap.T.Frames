@@ -60,6 +60,8 @@ document.addEventListener("visibilitychange", () => {
 const VIDEO_MAX_SIZE = 1920;
 const VIDEO_BIT_RATE = 9_000_000; // 9 Mbps
 const VIDEO_MAX_FPS = 24;
+// Gravação local no aparelho que está exibindo (Note/Chromebook).
+const RECORD_BIT_RATE = 8_000_000; // 8 Mbps
 
 const overlay = document.getElementById("overlay") as HTMLDivElement;
 const statusEl = document.getElementById("status") as HTMLParagraphElement;
@@ -70,6 +72,7 @@ const fullscreenBtn = document.getElementById(
 const reopenBtn = document.getElementById(
   "reopen-overlay-btn",
 ) as HTMLButtonElement;
+const recordBtn = document.getElementById("record-btn") as HTMLButtonElement;
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 
 let currentStep = "";
@@ -144,6 +147,166 @@ fullscreenBtn.addEventListener("click", async () => {
 });
 
 document.addEventListener("fullscreenchange", updateFullscreenLabel);
+
+// ---------------------------------------------------------------------------
+// Gravação local: grava o que aparece no canvas e salva no aparelho que está
+// exibindo. Os pedaços vão sendo escritos em disco (armazenamento privado do
+// navegador) conforme chegam, pra não encher a memória em gravações longas.
+// Ao parar, o arquivo é baixado pra pasta Downloads. Não grava áudio.
+// ---------------------------------------------------------------------------
+let recorder: MediaRecorder | null = null;
+let recordingTimer = 0;
+let recordingStartedAt = 0;
+
+function pickRecordingFormat(): { mimeType: string; ext: string } | null {
+  const candidates = [
+    { mimeType: "video/mp4;codecs=avc1", ext: "mp4" },
+    { mimeType: "video/mp4", ext: "mp4" },
+    { mimeType: "video/webm;codecs=vp9", ext: "webm" },
+    { mimeType: "video/webm;codecs=vp8", ext: "webm" },
+    { mimeType: "video/webm", ext: "webm" },
+  ];
+  if (typeof MediaRecorder === "undefined") return null;
+  return candidates.find((c) => MediaRecorder.isTypeSupported(c.mimeType)) ?? null;
+}
+
+function formatElapsed(ms: number) {
+  const total = Math.floor(ms / 1000);
+  const mm = String(Math.floor(total / 60)).padStart(2, "0");
+  const ss = String(total % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+function updateRecordButton() {
+  if (recorder) {
+    recordBtn.textContent = `Parar gravação (${formatElapsed(Date.now() - recordingStartedAt)})`;
+    recordBtn.classList.add("recording");
+    reopenBtn.classList.add("recording");
+  } else {
+    recordBtn.textContent = "Gravar";
+    recordBtn.classList.remove("recording");
+    reopenBtn.classList.remove("recording");
+  }
+}
+
+function timestampForFileName() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000);
+}
+
+async function startRecording() {
+  if (recorder || !isConnected) return;
+
+  const format = pickRecordingFormat();
+  if (!format) {
+    setStatus("Esse navegador não consegue gravar vídeo.", true);
+    showOverlayTemporarily();
+    return;
+  }
+
+  const fileName = `cap-t-frames-${timestampForFileName()}.${format.ext}`;
+
+  // Tenta escrever direto em disco (armazenamento privado do navegador).
+  // Se não der, cai pra memória (serve pra gravações curtas).
+  let handle: FileSystemFileHandle | null = null;
+  let writable: FileSystemWritableFileStream | null = null;
+  try {
+    const root = await navigator.storage.getDirectory();
+    handle = await root.getFileHandle(fileName, { create: true });
+    writable = await handle.createWritable();
+  } catch (error) {
+    console.warn("Gravando em memória (sem armazenamento em disco):", error);
+    handle = null;
+    writable = null;
+  }
+
+  const memoryChunks: Blob[] = [];
+  let writeQueue: Promise<void> = Promise.resolve();
+
+  const stream = canvas.captureStream(VIDEO_MAX_FPS);
+  const rec = new MediaRecorder(stream, {
+    mimeType: format.mimeType,
+    videoBitsPerSecond: RECORD_BIT_RATE,
+  });
+
+  rec.addEventListener("dataavailable", (event) => {
+    if (event.data.size === 0) return;
+    if (writable) {
+      const w = writable;
+      writeQueue = writeQueue
+        .then(() => w.write(event.data))
+        .catch((error) => console.error("Erro ao gravar em disco:", error));
+    } else {
+      memoryChunks.push(event.data);
+    }
+  });
+
+  rec.addEventListener("stop", async () => {
+    window.clearInterval(recordingTimer);
+    recorder = null;
+    updateRecordButton();
+    try {
+      await writeQueue;
+      let blob: Blob;
+      if (writable && handle) {
+        await writable.close();
+        blob = await handle.getFile();
+      } else {
+        blob = new Blob(memoryChunks, { type: format.mimeType });
+      }
+      downloadBlob(blob, fileName);
+      setStatus(`Gravação salva em Downloads: ${fileName}`);
+    } catch (error) {
+      console.error(error);
+      setStatus(describeError(error), true);
+    }
+    showOverlayTemporarily();
+  });
+
+  rec.start(1000); // entrega um pedaço por segundo
+  recorder = rec;
+  recordingStartedAt = Date.now();
+  updateRecordButton();
+  recordingTimer = window.setInterval(updateRecordButton, 1000);
+  setStatus("Gravando. Não gire o Tab durante a gravação.");
+}
+
+function stopRecording() {
+  if (recorder && recorder.state !== "inactive") recorder.stop();
+}
+
+recordBtn.addEventListener("click", () => {
+  if (recorder) stopRecording();
+  else void startRecording();
+});
+
+// Remove sobras de gravações antigas do armazenamento privado do navegador
+// (os arquivos que importam já foram pra pasta Downloads).
+async function cleanOldRecordings() {
+  try {
+    const root = await navigator.storage.getDirectory();
+    for await (const name of (root as unknown as { keys(): AsyncIterable<string> }).keys()) {
+      if (name.startsWith("cap-t-frames-")) {
+        await root.removeEntry(name).catch(() => {});
+      }
+    }
+  } catch {
+    /* sem suporte, ignorar */
+  }
+}
+void cleanOldRecordings();
 
 async function main() {
   if (!("VideoDecoder" in globalThis)) {
@@ -260,6 +423,8 @@ async function connectAndStream(Manager: AdbDaemonWebUsbDeviceManager) {
   void videoPacketStream.pipeTo(decoder.writable).catch((error) => {
     console.error("Stream de vídeo encerrado:", error);
     isConnected = false;
+    stopRecording();
+    recordBtn.disabled = true;
     void releaseWakeLock();
     setStatus("A conexão caiu. Recarregue a página e conecte de novo.", true);
     overlay.classList.remove("hidden");
@@ -267,6 +432,7 @@ async function connectAndStream(Manager: AdbDaemonWebUsbDeviceManager) {
 
   setStatus("Conectado. Transmitindo a tela do Tab.");
   isConnected = true;
+  recordBtn.disabled = false;
   await requestWakeLock();
   try {
     await document.documentElement.requestFullscreen();

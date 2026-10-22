@@ -86,6 +86,32 @@ body {
   cursor: pointer;
 }
 
+#record-btn {
+  appearance: none;
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  padding: 10px 22px;
+  font-size: 14px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#record-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#record-btn.recording {
+  background: var(--danger);
+  color: #050505;
+}
+
+#reopen-overlay-btn.recording {
+  background: var(--danger);
+  color: #050505;
+}
+
 #reopen-overlay-btn {
   position: fixed;
   top: max(10px, env(safe-area-inset-top));

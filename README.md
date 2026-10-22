@@ -34,6 +34,12 @@ abrir a página não depende de internet nenhuma: só do cabo USB-C conectado
 no Tab. Toda vez que uma nova versão é publicada, o cache se atualiza
 sozinho na próxima vez que a página carregar com internet disponível.
 
+## Gravar
+
+O botão **Gravar** (aparece ao tocar na tela, depois de conectar) grava o que
+está sendo exibido e, ao parar, salva o arquivo na pasta Downloads do aparelho
+que está exibindo. Não grava áudio. Não gire o Tab durante a gravação.
+
 ## Ajustar qualidade do vídeo
 
 As constantes `VIDEO_MAX_SIZE`, `VIDEO_BIT_RATE` e `VIDEO_MAX_FPS` estão no

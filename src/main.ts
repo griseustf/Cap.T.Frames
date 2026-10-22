@@ -16,6 +16,7 @@ import { ReadableStream, WritableStream } from "@yume-chan/stream-extra";
 import { BIN as SERVER_BIN } from "@yume-chan/fetch-scrcpy-server";
 
 import "./style.css";
+import { initCamera } from "./camera";
 
 // ---------------------------------------------------------------------------
 // Trava de tela ligada: como o Note só fica exibindo a imagem (sem nenhum
@@ -98,6 +99,7 @@ function describeError(error: unknown): string {
 }
 
 let hideTimer = 0;
+let cameraPanelOpen = false;
 
 function hideOverlay() {
   overlay.classList.add("hidden");
@@ -108,13 +110,15 @@ function showOverlayTemporarily() {
   overlay.classList.remove("hidden");
   reopenBtn.classList.remove("visible");
   window.clearTimeout(hideTimer);
-  hideTimer = window.setTimeout(hideOverlay, 4000);
+  hideTimer = window.setTimeout(hideOverlay, cameraPanelOpen ? 15000 : 4000);
 }
 
 function hideOverlaySoon() {
   // Depois de conectar, esconde o texto/botão pra não sujar a gravação da
   // live. O botão discreto no canto (ou um toque na tela) traz de volta.
-  window.setTimeout(hideOverlay, 1500);
+  window.setTimeout(() => {
+    if (!cameraPanelOpen) hideOverlay();
+  }, 1500);
 }
 
 document.body.addEventListener("click", (event) => {
@@ -123,6 +127,15 @@ document.body.addEventListener("click", (event) => {
 });
 
 reopenBtn.addEventListener("click", showOverlayTemporarily);
+
+// Tocar no fundo escuro do menu fecha ele (assim dá pra arrastar o círculo da câmera).
+overlay.addEventListener("click", (event) => {
+  if (event.target === overlay && isConnected) {
+    event.stopPropagation();
+    window.clearTimeout(hideTimer);
+    hideOverlay();
+  }
+});
 
 function isFullscreen() {
   return document.fullscreenElement !== null;
@@ -158,14 +171,24 @@ let recorder: MediaRecorder | null = null;
 let recordingTimer = 0;
 let recordingStartedAt = 0;
 
-function pickRecordingFormat(): { mimeType: string; ext: string } | null {
-  const candidates = [
-    { mimeType: "video/mp4;codecs=avc1", ext: "mp4" },
-    { mimeType: "video/mp4", ext: "mp4" },
-    { mimeType: "video/webm;codecs=vp9", ext: "webm" },
-    { mimeType: "video/webm;codecs=vp8", ext: "webm" },
-    { mimeType: "video/webm", ext: "webm" },
-  ];
+function pickRecordingFormat(
+  hasAudio: boolean,
+): { mimeType: string; ext: string } | null {
+  const candidates = hasAudio
+    ? [
+        { mimeType: "video/mp4;codecs=avc1,mp4a.40.2", ext: "mp4" },
+        { mimeType: "video/mp4", ext: "mp4" },
+        { mimeType: "video/webm;codecs=vp9,opus", ext: "webm" },
+        { mimeType: "video/webm;codecs=vp8,opus", ext: "webm" },
+        { mimeType: "video/webm", ext: "webm" },
+      ]
+    : [
+        { mimeType: "video/mp4;codecs=avc1", ext: "mp4" },
+        { mimeType: "video/mp4", ext: "mp4" },
+        { mimeType: "video/webm;codecs=vp9", ext: "webm" },
+        { mimeType: "video/webm;codecs=vp8", ext: "webm" },
+        { mimeType: "video/webm", ext: "webm" },
+      ];
   if (typeof MediaRecorder === "undefined") return null;
   return candidates.find((c) => MediaRecorder.isTypeSupported(c.mimeType)) ?? null;
 }
@@ -206,10 +229,24 @@ function downloadBlob(blob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000);
 }
 
+const camera = initCamera({
+  canvas,
+  fps: VIDEO_MAX_FPS,
+  setStatus,
+  onInteract: () => {
+    if (isConnected) showOverlayTemporarily();
+  },
+  onPanelToggle: (open) => {
+    cameraPanelOpen = open;
+    if (isConnected) showOverlayTemporarily();
+  },
+});
+
 async function startRecording() {
   if (recorder || !isConnected) return;
 
-  const format = pickRecordingFormat();
+  const micTracks = camera.micTracks();
+  const format = pickRecordingFormat(micTracks.length > 0);
   if (!format) {
     setStatus("Esse navegador não consegue gravar vídeo.", true);
     showOverlayTemporarily();
@@ -235,10 +272,14 @@ async function startRecording() {
   const memoryChunks: Blob[] = [];
   let writeQueue: Promise<void> = Promise.resolve();
 
-  const stream = canvas.captureStream(VIDEO_MAX_FPS);
+  // Com a câmera ligada, grava tela + câmera juntas; senão, só a tela.
+  const composite = camera.isCameraOn() ? camera.createComposite() : null;
+  const stream = composite ? composite.stream : canvas.captureStream(VIDEO_MAX_FPS);
+  micTracks.forEach((track) => stream.addTrack(track));
   const rec = new MediaRecorder(stream, {
     mimeType: format.mimeType,
     videoBitsPerSecond: RECORD_BIT_RATE,
+    ...(micTracks.length > 0 ? { audioBitsPerSecond: 128_000 } : {}),
   });
 
   rec.addEventListener("dataavailable", (event) => {
@@ -255,6 +296,7 @@ async function startRecording() {
 
   rec.addEventListener("stop", async () => {
     window.clearInterval(recordingTimer);
+    composite?.dispose();
     recorder = null;
     updateRecordButton();
     try {
@@ -280,7 +322,11 @@ async function startRecording() {
   recordingStartedAt = Date.now();
   updateRecordButton();
   recordingTimer = window.setInterval(updateRecordButton, 1000);
-  setStatus("Gravando. Não gire o Tab durante a gravação.");
+  setStatus(
+    composite
+      ? "Gravando tela + câmera."
+      : "Gravando. Não gire o Tab durante a gravação.",
+  );
 }
 
 function stopRecording() {

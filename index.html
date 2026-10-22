@@ -17,9 +17,22 @@
       <div id="wordmark">Cap.T.Frames</div>
       <button id="connect-btn">Conectar no Tab</button>
       <button id="record-btn" disabled>Gravar</button>
+      <button id="camera-btn">Câmera</button>
+      <div id="camera-panel" hidden>
+        <select id="camera-select" aria-label="Câmera"></select>
+        <p class="hint">Depois de conectar, arraste o círculo da câmera pela tela para movê-lo. Toque no fundo escuro para fechar este menu.</p>
+        <div class="row" role="group" aria-label="Tamanho da câmera">
+          <button data-size="0.16">P</button>
+          <button data-size="0.24">M</button>
+          <button data-size="0.34">G</button>
+        </div>
+        <label class="check"><input type="checkbox" id="mic-check" /> Gravar meu microfone</label>
+      </div>
       <button id="fullscreen-btn">Tela cheia</button>
       <p id="status">Ligue o Tab pelo cabo USB-C e toque em conectar.</p>
     </div>
+
+    <video id="pip-video" playsinline muted autoplay></video>
 
     <button id="reopen-overlay-btn" aria-label="Mostrar controles">⋮</button>
 

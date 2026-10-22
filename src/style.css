@@ -151,3 +151,109 @@ body {
   font-size: 11px;
   text-align: left;
 }
+
+/* --- câmera -------------------------------------------------------------- */
+
+#overlay {
+  z-index: 3;
+  overflow-y: auto;
+  justify-content: safe center; /* não corta o topo em tela baixa */
+}
+
+#pip-video {
+  position: fixed;
+  z-index: 2;
+  display: none;
+  object-fit: cover;
+  background: #000;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+#pip-video.on {
+  display: block;
+}
+
+#camera-panel .hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a8a84;
+  text-align: left;
+}
+
+#camera-btn {
+  appearance: none;
+  border: 1px solid #444;
+  background: transparent;
+  color: #ccc;
+  padding: 10px 22px;
+  font-size: 14px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#camera-btn.active {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+#camera-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(320px, 86vw);
+  padding: 14px;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: rgba(15, 15, 15, 0.9);
+}
+
+#camera-panel[hidden] {
+  display: none;
+}
+
+#camera-select {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  color: var(--ink);
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 3px;
+}
+
+#camera-panel .row {
+  display: flex;
+  gap: 8px;
+}
+
+#camera-panel .row button {
+  flex: 1;
+  appearance: none;
+  padding: 10px 0;
+  font-size: 15px;
+  color: #ccc;
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+#camera-panel .row button.active {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+#camera-panel .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #a9a9a3;
+  text-align: left;
+}

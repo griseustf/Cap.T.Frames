@@ -40,6 +40,15 @@ O botão **Gravar** (aparece ao tocar na tela, depois de conectar) grava o que
 está sendo exibido e, ao parar, salva o arquivo na pasta Downloads do aparelho
 que está exibindo. Não grava áudio. Não gire o Tab durante a gravação.
 
+## Câmera
+
+O botão **Câmera** lista as câmeras do aparelho (traseira, frontal, webcam
+externa). A escolhida aparece num círculo por cima da tela espelhada; dá pra arrastar
+o círculo pela tela e escolher o tamanho (P, M, G). Se a câmera estiver
+ligada, a gravação junta tela + câmera no mesmo vídeo; a caixa "Gravar meu
+microfone" inclui o áudio. Ligue a câmera e o microfone antes de começar a
+gravar.
+
 ## Ajustar qualidade do vídeo
 
 As constantes `VIDEO_MAX_SIZE`, `VIDEO_BIT_RATE` e `VIDEO_MAX_FPS` estão no
